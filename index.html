@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>実験班わけ</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#1f2933; --sub:#6b7480; --line:#dde1e6;
+    --accent:#2f6fde; --accent-ink:#fff; --girl:#e0457b; --girl-bg:#fde8f0;
+    --boy:#2f6fde; --boy-bg:#e7effc; --warn:#b54708; --warn-bg:#fff4e5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Noto Sans JP","Hiragino Sans","Yu Gothic",system-ui,sans-serif;line-height:1.6}
+  main{max-width:980px;margin:0 auto;padding:24px 16px 64px}
+  h1{font-size:1.5rem;margin:0 0 4px}
+  .lead{color:var(--sub);margin:0 0 20px;font-size:.92rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  label{display:block;font-weight:700;font-size:.9rem;margin-bottom:4px}
+  .hint{font-weight:400;color:var(--sub);font-size:.8rem}
+  input[type=number],textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+  textarea{min-height:64px;resize:vertical}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}
+  .check{display:flex;gap:6px;align-items:center;font-weight:400;font-size:.9rem;margin:0;cursor:pointer}
+  button{font:inherit;font-weight:700;border:0;border-radius:8px;padding:10px 18px;cursor:pointer}
+  .primary{background:var(--accent);color:var(--accent-ink)}
+  .ghost{background:#eef1f5;color:var(--ink)}
+  button:active{transform:translateY(1px)}
+  .summary{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;font-size:.88rem}
+  .pill{background:#eef1f5;border-radius:999px;padding:2px 10px}
+  .pill.g{background:var(--girl-bg);color:var(--girl)}
+  .pill.b{background:var(--boy-bg);color:var(--boy)}
+  .msg{margin-top:10px;padding:8px 12px;border-radius:8px;font-size:.88rem;display:none}
+  .msg.show{display:block}
+  .msg.warn{background:var(--warn-bg);color:var(--warn)}
+  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+  .group{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+  .group h3{margin:0 0 6px;font-size:1.05rem;display:flex;justify-content:space-between;align-items:baseline}
+  .group h3 small{font-weight:400;color:var(--sub);font-size:.78rem}
+  .nums{display:flex;flex-wrap:wrap;gap:6px}
+  .num{min-width:2.2em;text-align:center;border-radius:6px;padding:2px 6px;font-weight:700;font-variant-numeric:tabular-nums}
+  .num.b{background:var(--boy-bg);color:var(--boy)}
+  .num.g{background:var(--girl-bg);color:var(--girl)}
+  .out{font-family:ui-monospace,Menlo,monospace;min-height:90px}
+  .copied{color:var(--accent);font-size:.85rem;opacity:0;transition:opacity .2s}
+  .copied.show{opacity:1}
+  .group.bad{border-color:var(--warn)}
+  .clash{margin-top:6px;font-size:.78rem;color:var(--warn)}
+  .legend{font-size:.8rem;color:var(--sub);margin:0 0 10px}
+  @media print{
+    body{background:#fff}
+    .noprint{display:none!important}
+    .card{border:0;padding:0}
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>🧪 実験班わけ</h1>
+  <p class="lead noprint">人数・女子の出席番号・班の数を入れて「班をつくる」。女子は各班にできるだけ均等に入ります。</p>
+
+  <section class="card noprint">
+    <div class="grid">
+      <div>
+        <label for="total">クラスの人数</label>
+        <input id="total" type="number" min="1" max="60" value="40">
+      </div>
+      <div>
+        <label for="count">班の数</label>
+        <input id="count" type="number" min="1" max="30" value="8">
+        <div class="hint" id="sizeHint"></div>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:14px">
+      <div>
+        <label for="girls">女子の出席番号 <span class="hint">（空欄なら男子のみ。例：3,7,12-15）</span></label>
+        <textarea id="girls" placeholder="例）2, 5, 9, 14, 21-23"></textarea>
+      </div>
+      <div>
+        <label for="absent">欠席・除外 <span class="hint">（任意。この番号は班に入れない）</span></label>
+        <textarea id="absent" placeholder="例）17, 30"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:14px">
+      <label for="apart">一緒の班にしたくない組 <span class="hint">（1 行に 1 組。例：3,15 ／ 3 人以上も可：8,21,33）</span></label>
+      <textarea id="apart" placeholder="3,15&#10;8,21,33"></textarea>
+    </div>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="noLone"> 女子を 1 人だけの班にしない</label>
+    </div>
+    <div class="summary" id="summary"></div>
+    <div class="msg warn" id="msg"></div>
+    <div class="row">
+      <button class="primary" id="make">班をつくる</button>
+      <button class="ghost" id="again">もう一回シャッフル</button>
+    </div>
+  </section>
+
+  <section class="card" id="resultCard" hidden>
+    <p class="legend noprint"><span class="num b">男子</span> <span class="num g">女子</span></p>
+    <div class="groups" id="groups"></div>
+  </section>
+
+  <section class="card noprint" id="copyCard" hidden>
+    <label for="out">コピー用</label>
+    <div class="row" style="margin-top:0;margin-bottom:8px">
+      <label class="check"><input type="radio" name="fmt" value="line" checked> 1 行</label>
+      <label class="check"><input type="radio" name="fmt" value="br"> 班ごとに改行</label>
+    </div>
+    <textarea id="out" class="out" readonly></textarea>
+    <div class="row">
+      <button class="primary" id="copy">コピー</button>
+      <button class="ghost" id="print">印刷</button>
+      <span class="copied" id="copied">コピーしました ✓</span>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const KEY = "jikken-han-v1";
+  let last = null;
+
+  // 「3,7,12-15」「３、７」なども読めるようにする
+  function parseNums(text){
+    const s = text.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+                  .replace(/[ー－〜～]/g, "-");
+    const out = new Set();
+    for (const part of s.split(/[^0-9-]+/)) {
+      if (!part) continue;
+      const m = part.match(/^(\d+)-(\d+)$/);
+      if (m) {
+        let a = +m[1], b = +m[2];
+        if (a > b) [a, b] = [b, a];
+        for (let i = a; i <= b; i++) out.add(i);
+      } else if (/^\d+$/.test(part)) out.add(+part);
+    }
+    return [...out].sort((a, b) => a - b);
+  }
+
+  function shuffle(a){
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function read(){
+    const total = Math.max(0, Math.floor(+$("total").value || 0));
+    const k = Math.max(1, Math.floor(+$("count").value || 1));
+    const girlsRaw = parseNums($("girls").value);
+    const absentRaw = parseNums($("absent").value);
+    const warn = [];
+    const bad = [...girlsRaw, ...absentRaw].filter(n => n < 1 || n > total);
+    if (bad.length) warn.push(`人数（${total}）の範囲外の番号は無視しました：${[...new Set(bad)].join(", ")}`);
+    const absent = new Set(absentRaw.filter(n => n >= 1 && n <= total));
+    const girlSet = new Set(girlsRaw.filter(n => n >= 1 && n <= total && !absent.has(n)));
+    const present = [];
+    for (let i = 1; i <= total; i++) if (!absent.has(i)) present.push(i);
+    const girls = present.filter(n => girlSet.has(n));
+    const boys = present.filter(n => !girlSet.has(n));
+    const presentSet = new Set(present);
+    const apart = $("apart").value.split(/\n/)
+      .map(line => parseNums(line).filter(n => presentSet.has(n)))
+      .filter(a => a.length >= 2);
+    return { total, k, girls, boys, absent: [...absent], apart, warn };
+  }
+
+  function updateSummary(){
+    const d = read();
+    const n = d.girls.length + d.boys.length;
+    const k = Math.min(d.k, Math.max(1, n));
+    const base = Math.floor(n / k), extra = n % k;
+    $("sizeHint").textContent = n
+      ? (extra ? `→ ${base + 1}人班×${extra}、${base}人班×${k - extra}` : `→ ${base}人班×${k}`)
+      : "";
+    $("summary").innerHTML =
+      `<span class="pill">班に入る人数 ${n}</span>` +
+      `<span class="pill b">男子 ${d.boys.length}</span>` +
+      `<span class="pill g">女子 ${d.girls.length}</span>` +
+      (d.absent.length ? `<span class="pill">除外 ${d.absent.length}</span>` : "");
+    const w = [...d.warn];
+    if (d.k > n && n > 0) w.push(`班の数が人数より多いので、${n} 班にします。`);
+    $("msg").textContent = w.join(" ");
+    $("msg").classList.toggle("show", w.length > 0);
+    return d;
+  }
+
+  // 「一緒にしない組」の衝突ペア一覧
+  function clashes(groups, apart){
+    const where = new Map();
+    groups.forEach((G, i) => [...G.girls, ...G.boys].forEach(x => where.set(x, i)));
+    const out = [];
+    for (const set of apart)
+      for (let a = 0; a < set.length; a++)
+        for (let b = a + 1; b < set.length; b++)
+          if (where.get(set[a]) === where.get(set[b])) out.push([set[a], set[b], where.get(set[a])]);
+    return out;
+  }
+
+  // 同じ性別どうしを班の間で入れ替えて衝突を減らす（男女比・人数は変わらない）
+  function improve(groups, apart){
+    let best = clashes(groups, apart).length;
+    for (let it = 0; it < 3000 && best > 0; it++) {
+      const c = clashes(groups, apart);
+      const [p, q, gi] = c[Math.floor(Math.random() * c.length)];
+      const x = Math.random() < .5 ? p : q;
+      const A = groups[gi];
+      const key = A.girls.includes(x) ? "girls" : "boys";
+      const bi = Math.floor(Math.random() * groups.length);
+      if (bi === gi || !groups[bi][key].length) continue;
+      const B = groups[bi];
+      const yi = Math.floor(Math.random() * B[key].length), xi = A[key].indexOf(x);
+      const y = B[key][yi];
+      A[key][xi] = y; B[key][yi] = x;
+      const now = clashes(groups, apart).length;
+      if (now <= best) best = now;
+      else { A[key][xi] = x; B[key][yi] = y; }
+    }
+    return best;
+  }
+
+  function makeGroups(){
+    const d = updateSummary();
+    const n = d.girls.length + d.boys.length;
+    if (!n) { $("resultCard").hidden = $("copyCard").hidden = true; return; }
+    const k = Math.min(d.k, n);
+    let bestGroups = null, bestScore = Infinity;
+    for (let r = 0; r < 20 && bestScore > 0; r++) {
+      const groups = assign(d, k);
+      const s = d.apart.length ? improve(groups, d.apart) : 0;
+      if (s < bestScore) { bestScore = s; bestGroups = groups; }
+    }
+    // 班番号は「女子の人数が偏らない」よう再シャッフル
+    const final = shuffle(bestGroups);
+    const cl = clashes(final, d.apart);
+    last = final.map((G, i) => ({
+      members: [...G.girls, ...G.boys].sort((a, b) => a - b),
+      girls: new Set(G.girls),
+      clash: cl.filter(c => c[2] === i).map(c => `${c[0]}と${c[1]}`),
+    }));
+    const w = $("msg");
+    if (cl.length) {
+      w.textContent = `「一緒にしない組」を全部は分けられませんでした（${cl.map(c => c[0] + "と" + c[1]).join("、")}）。班の数を増やすか、もう一回シャッフルしてみてください。`;
+      w.classList.add("show");
+    }
+    render();
+    save();
+  }
+
+  function assign(d, k){
+    const n = d.girls.length + d.boys.length;
+
+    // 班の定員（大きい班がどこに来るかはランダム）
+    const base = Math.floor(n / k), extra = n % k;
+    const sizes = shuffle(Array.from({ length: k }, (_, i) => base + (i < extra ? 1 : 0)));
+    const groups = sizes.map(size => ({ size, girls: [], boys: [] }));
+
+    // 女子を入れる班の数（「1人だけにしない」なら 2人以上ずつ）
+    const g = d.girls.length;
+    let m = k;
+    if ($("noLone").checked && g >= 2) m = Math.min(k, Math.floor(g / 2));
+    // 定員の大きい班から女子を割り当て（同じ定員ならランダム順）
+    const order = shuffle([...groups.keys()]).sort((a, b) => groups[b].size - groups[a].size);
+    const targets = order.slice(0, m);
+    const girls = shuffle([...d.girls]);
+    let t = 0;
+    for (const x of girls) {
+      // 空きがある班を順番に回る
+      for (let tries = 0; tries < targets.length * 2; tries++) {
+        const gi = targets[t % targets.length]; t++;
+        const G = groups[gi];
+        if (G.girls.length < G.size) { G.girls.push(x); break; }
+      }
+    }
+    // 残りの枠を男子で埋める
+    const boys = shuffle([...d.boys]);
+    for (const G of groups) while (G.girls.length + G.boys.length < G.size && boys.length) G.boys.push(boys.pop());
+    // 念のため（女子が定員を超えた等で残った場合）
+    const left = [...boys];
+    for (const x of left) groups.reduce((a, b) => (a.girls.length + a.boys.length <= b.girls.length + b.boys.length ? a : b)).boys.push(x);
+
+    return groups;
+  }
+
+  function render(){
+    if (!last) return;
+    $("groups").innerHTML = last.map((G, i) => {
+      const gc = G.girls.size, bc = G.members.length - gc;
+      const nums = G.members.map(x => `<span class="num ${G.girls.has(x) ? "g" : "b"}">${x}</span>`).join("");
+      const cw = G.clash && G.clash.length ? `<div class="clash">⚠ ${G.clash.join("、")}が同じ班</div>` : "";
+      return `<div class="group${cw ? " bad" : ""}"><h3>${i + 1}班 <small>${G.members.length}人${gc ? `（男${bc}・女${gc}）` : ""}</small></h3><div class="nums">${nums}</div>${cw}</div>`;
+    }).join("");
+    const br = document.querySelector('input[name=fmt]:checked').value === "br";
+    $("out").value = last.map((G, i) => `${i + 1}班：${G.members.join(",")}`).join(br ? "\n" : "　");
+    $("resultCard").hidden = $("copyCard").hidden = false;
+  }
+
+  function save(){
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        total: $("total").value, count: $("count").value,
+        girls: $("girls").value, absent: $("absent").value, apart: $("apart").value, noLone: $("noLone").checked,
+      }));
+    } catch (e) {}
+  }
+  function load(){
+    try {
+      const s = JSON.parse(localStorage.getItem(KEY) || "null");
+      if (!s) return;
+      $("total").value = s.total; $("count").value = s.count;
+      $("girls").value = s.girls; $("absent").value = s.absent || ""; $("apart").value = s.apart || "";
+      $("noLone").checked = !!s.noLone;
+    } catch (e) {}
+  }
+
+  async function copy(){
+    const text = $("out").value;
+    try { await navigator.clipboard.writeText(text); }
+    catch (e) { $("out").select(); document.execCommand("copy"); }
+    $("copied").classList.add("show");
+    setTimeout(() => $("copied").classList.remove("show"), 1500);
+  }
+
+  ["total", "count", "girls", "absent", "apart", "noLone"].forEach(id =>
+    $(id).addEventListener("input", () => { updateSummary(); save(); }));
+  document.querySelectorAll('input[name=fmt]').forEach(r => r.addEventListener("change", render));
+  $("make").addEventListener("click", makeGroups);
+  $("again").addEventListener("click", makeGroups);
+  $("copy").addEventListener("click", copy);
+  $("print").addEventListener("click", () => window.print());
+
+  load();
+  updateSummary();
+})();
+</script>
+</body>
+</html>
